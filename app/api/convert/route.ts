@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const pageId = searchParams.get("pageId");
+  const raw = searchParams.get("raw") === "true"; // Check if raw parameter is set to true
 
   if (!pageId) {
     return NextResponse.json(
@@ -124,8 +125,20 @@ export async function GET(request: Request) {
       }
     }
 
-    // Return the processed markdown content
-    return NextResponse.json({ markdown });
+    // Clean up any UUIDs/IDs that might be in the markdown
+    markdown = markdown.replace(/\b[0-9a-f]{32}\b/g, '');
+    markdown = markdown.trim();
+    
+    // Return raw markdown if requested, otherwise return JSON
+    if (raw) {
+      return new NextResponse(markdown, {
+        headers: {
+          "Content-Type": "text/plain",
+        },
+      });
+    } else {
+      return NextResponse.json({ markdown });
+    }
   } catch (error) {
     console.error("Error converting Notion page:", error);
     return NextResponse.json(
