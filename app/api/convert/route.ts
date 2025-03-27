@@ -39,8 +39,13 @@ export async function GET(request: Request) {
     // Get the raw markdown content
     let markdown = buffer[pageId] || '';
     
+    // Add vertical spacing between sections
+    markdown = markdown.replace(/\n(#+\s)/g, '\n\n$1');
+    markdown = markdown.replace(/\n(>\s)/g, '\n\n$1');
+    
     // Remove any existing database headers first
     markdown = markdown.replace(/> ⭐ \*\*Mes notes\*\*[\s\n>-]*\n\n/g, '');
+    markdown = markdown.replace(/⭐ Mes notes\n⭐ Mes notes/g, '⭐ Mes notes');
     
     // Check for database references in the format [0](database_id)
     const databaseRegex = /\[0\]\(([a-f0-9-]+)\)/g;
@@ -50,15 +55,7 @@ export async function GET(request: Request) {
     for (const match of databaseMatches) {
       const databaseId = match[1];
       try {
-        // Fetch the database schema to get column names
-        const databaseInfo = await notion.databases.retrieve({ database_id: databaseId });
-        
-        // Extract column properties - handle type safely
-        const properties = databaseInfo.properties || {};
-        const columnNames = Object.entries(properties).map(([name, prop]: [string, any]) => ({ 
-          name, 
-          type: prop.type as string 
-        }));
+        // Removed database schema fetch since we're using a simpler approach
         
         // Query the database to get rows
         const response = await notion.databases.query({
@@ -66,49 +63,53 @@ export async function GET(request: Request) {
           page_size: 100, // Limit results
         });
         
-        // Generate the markdown table header
-        // Use 'Mes notes' as default title as we know that's what it's called
-        let tableMarkdown = `> ⭐ **Mes notes**\n> ---\n\n`;
+        // Use a simplified list format instead of a table
+        let tableMarkdown = `⭐ **Mes notes**:\n`;
         
-        // Create table header row
-        tableMarkdown += '| ' + columnNames.map(col => col.name).join(' | ') + ' |\n';
-        tableMarkdown += '| ' + columnNames.map(() => '---').join(' | ') + ' |\n';
+        // Collect the data with names and values
+        const entries = [];
         
-        // Add table rows
         for (const page of response.results) {
-          const row = [];
-          for (const { name, type } of columnNames) {
-            // Type assertion for page.properties
-            const pageProperties = (page as any).properties || {};
-            const property = pageProperties[name];
-            let cellValue = '';
-            
-            // Extract values based on property type
-            if (property && property[type]) {
-              if (type === 'number') {
-                cellValue = property.number?.toString() || '';
-              } else if (type === 'title' || type === 'rich_text') {
-                const textContent = property[type];
-                if (textContent && textContent.length > 0) {
-                  cellValue = textContent.map((t: any) => t.plain_text || '').join('');
-                }
+          // Type assertion for page.properties
+          const pageProperties = (page as any).properties || {};
+          
+          // Find the name and number properties
+          let name = '';
+          let rating = '';
+          
+          for (const [propName, prop] of Object.entries(pageProperties)) {
+            if (propName.toLowerCase() === 'name') {
+              // Get the name value
+              const titleContent = (prop as any).title;
+              if (titleContent && titleContent.length > 0) {
+                name = titleContent.map((t: any) => t.plain_text || '').join('');
               }
+            } else if (propName.toLowerCase() === 'number') {
+              // Get the rating value
+              rating = (prop as any).number?.toString() || '';
             }
-            
-            row.push(cellValue);
           }
           
-          tableMarkdown += '| ' + row.join(' | ') + ' |\n';
+          if (name && rating) {
+            entries.push({ name, rating });
+          }
         }
         
+        // Create a simple list format
+        entries.forEach(entry => {
+          tableMarkdown += `- ${entry.name} : ${entry.rating}\n`;
+        });
+        
         // Replace the database reference with the table markdown
+        // Add a newline after the list
+        tableMarkdown += '\n';
         markdown = markdown.replace(match[0], tableMarkdown);
       } catch (dbError) {
         console.error(`Error fetching database ${databaseId}:`, dbError);
         // Replace with error message if we can't fetch the database
         markdown = markdown.replace(
           match[0], 
-          `> ⭐ **Database**\n> ---\n\n*(Error: Could not fetch database content)*\n\n`
+          `⭐ **Mes notes**:\n*(Error: Could not fetch database content)*\n\n`
         );
       }
     }
