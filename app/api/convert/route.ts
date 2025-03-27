@@ -39,6 +39,9 @@ export async function GET(request: Request) {
     // Get the raw markdown content
     let markdown = buffer[pageId] || '';
     
+    // Remove any existing database headers first
+    markdown = markdown.replace(/> ⭐ \*\*Mes notes\*\*[\s\n>-]*\n\n/g, '');
+    
     // Check for database references in the format [0](database_id)
     const databaseRegex = /\[0\]\(([a-f0-9-]+)\)/g;
     const databaseMatches = [...markdown.matchAll(databaseRegex)];

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 export default function Home() {
   const [pageId, setPageId] = useState("");
   const [markdown, setMarkdown] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [viewMode, setViewMode] = useState<"raw" | "preview">("preview");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,18 +68,42 @@ export default function Home() {
 
         {markdown && (
           <div className="mb-6">
-            <h2 className="text-2xl font-bold mb-4">Generated Markdown</h2>
-            <div className="p-4 bg-gray-100 rounded-md">
-              <pre className="whitespace-pre-wrap">{markdown}</pre>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Generated Markdown</h2>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setViewMode('raw')}
+                  className={`py-1 px-3 rounded-md ${viewMode === 'raw' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                >
+                  Raw
+                </button>
+                <button
+                  onClick={() => setViewMode('preview')}
+                  className={`py-1 px-3 rounded-md ${viewMode === 'preview' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                >
+                  Preview
+                </button>
+              </div>
             </div>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(markdown);
-              }}
-              className="mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-md"
-            >
-              Copy to Clipboard
-            </button>
+            
+            <div className="p-4 bg-gray-100 rounded-md">
+              {viewMode === 'raw' ? (
+                <pre className="whitespace-pre-wrap">{markdown}</pre>
+              ) : (
+                <div className="markdown-preview prose">
+                  <ReactMarkdown>{markdown}</ReactMarkdown>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex space-x-2 mt-4">
+              <button
+                onClick={() => navigator.clipboard.writeText(markdown)}
+                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-md"
+              >
+                Copy to Clipboard
+              </button>
+            </div>
           </div>
         )}
       </div>
