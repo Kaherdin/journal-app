@@ -168,20 +168,7 @@ export async function GET(request: Request) {
         },
       });
     } else {
-      // Include MIT as a special header in the response
-      // This ensures it's accessible even if Make.com only provides "data"
-      const response = NextResponse.json({ 
-        markdown, 
-        mit,
-        // Add MIT to the start of the markdown content with a special delimiter
-        // Make.com will have access to this through the data field
-        data: `MIT::${mit}::END_MIT\n\n${markdown}`
-      });
-      
-      // Also add MIT as a header for tools that can read headers
-      response.headers.set("X-MIT", mit || "");
-      
-      return response;
+      return NextResponse.json({ markdown, mit });
     }
   } catch (error) {
     console.error("Error converting Notion page:", error);
