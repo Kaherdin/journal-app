@@ -7,6 +7,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const pageId = searchParams.get("pageId");
   const raw = searchParams.get("raw") === "true"; // Check if raw parameter is set to true
+  const docFormat = searchParams.get("docFormat") === "true"; // Check if docFormat parameter is set to true
 
   if (!pageId) {
     return NextResponse.json(
@@ -129,6 +130,36 @@ export async function GET(request: Request) {
     markdown = markdown.replace(/\b[0-9a-f]{32}\b/g, '');
     markdown = markdown.trim();
     
+    // Extract MIT if present
+    let mit = "";
+    const mitRegex = />\s*⚠️\s*\*\*MIT:\s*([^*]+)\*\*/;
+    const mitMatch = markdown.match(mitRegex);
+    
+    if (mitMatch && mitMatch[1]) {
+      mit = mitMatch[1].trim();
+    }
+    
+    // Format for Google Docs if requested
+    if (docFormat) {
+      // Simple formatting for Google Docs (plain text with basic formatting)
+      let docFormatted = markdown;
+      
+      // Replace markdown headers with plain text equivalents
+      docFormatted = docFormatted.replace(/#{1,6}\s+(.+)/g, '$1');
+      
+      // Replace markdown bold with plain text
+      docFormatted = docFormatted.replace(/\*\*(.+?)\*\*/g, '$1');
+      
+      // Replace markdown italic with plain text
+      docFormatted = docFormatted.replace(/\*(.+?)\*/g, '$1');
+      
+      // Replace markdown links with just the text
+      docFormatted = docFormatted.replace(/\[(.+?)\]\(.+?\)/g, '$1');
+      
+      // Return the formatted plain text for Google Docs
+      markdown = docFormatted;
+    }
+    
     // Return raw markdown if requested, otherwise return JSON
     if (raw) {
       return new NextResponse(markdown, {
@@ -137,7 +168,7 @@ export async function GET(request: Request) {
         },
       });
     } else {
-      return NextResponse.json({ markdown });
+      return NextResponse.json({ markdown, mit });
     }
   } catch (error) {
     console.error("Error converting Notion page:", error);
