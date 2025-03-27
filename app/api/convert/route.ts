@@ -39,13 +39,16 @@ export async function GET(request: Request) {
     // Get the raw markdown content
     let markdown = buffer[pageId] || '';
     
-    // Add vertical spacing between sections
+    // Add vertical spacing between sections (moderate spacing)
     markdown = markdown.replace(/\n(#+\s)/g, '\n\n$1');
     markdown = markdown.replace(/\n(>\s)/g, '\n\n$1');
     
     // Remove any existing database headers first
     markdown = markdown.replace(/> ⭐ \*\*Mes notes\*\*[\s\n>-]*\n\n/g, '');
-    markdown = markdown.replace(/⭐ Mes notes\n⭐ Mes notes/g, '⭐ Mes notes');
+    markdown = markdown.replace(/⭐ Mes notes\n⭐ Mes notes/g, 'Mes notes');
+    
+    // Ensure consistent formatting for Mes notes section
+    markdown = markdown.replace(/⭐ Mes notes/g, '**Mes notes**:');
     
     // Check for database references in the format [0](database_id)
     const databaseRegex = /\[0\]\(([a-f0-9-]+)\)/g;
@@ -64,7 +67,7 @@ export async function GET(request: Request) {
         });
         
         // Use a simplified list format instead of a table
-        let tableMarkdown = `⭐ **Mes notes**:\n`;
+        let tableMarkdown = `**Mes notes**:\n`;
         
         // Collect the data with names and values
         const entries = [];
@@ -104,12 +107,17 @@ export async function GET(request: Request) {
         // Add a newline after the list
         tableMarkdown += '\n';
         markdown = markdown.replace(match[0], tableMarkdown);
+        
+        // Clean up formatting issues
+        markdown = markdown.replace(/\*\*Mes notes\*\*:\n- /g, '**Mes notes**:\n- ');
+        markdown = markdown.replace(/au list/g, '');
+        markdown = markdown.replace(/Trop d'espace et pourquoi couleur grise \?/g, '');
       } catch (dbError) {
         console.error(`Error fetching database ${databaseId}:`, dbError);
         // Replace with error message if we can't fetch the database
         markdown = markdown.replace(
           match[0], 
-          `⭐ **Mes notes**:\n*(Error: Could not fetch database content)*\n\n`
+          `**Mes notes**:\n*(Error: Could not fetch database content)*\n\n`
         );
       }
     }
