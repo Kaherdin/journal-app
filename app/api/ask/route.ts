@@ -15,19 +15,31 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Generate embedding for the question
-    const questionEmbedding = await createEmbedding(question);
+    console.log('Question reçue:', question);
     
-    // Perform vector search in Supabase
-    const { data: entries, error } = await supabase.rpc('match_journal_entries', {
-      query_embedding: questionEmbedding,
-      match_threshold: 0.5,
-      match_count: 5
-    });
+    // Récupérer toutes les entrées (alternative à la recherche vectorielle)
+    const { data: entries, error } = await supabase
+      .from('journal_entries')
+      .select('*')
+      .order('date', { ascending: false })
+      .limit(5);
+    
+    console.log('Entrées récupérées:', entries?.length);
+    console.log('Erreur éventuelle:', error);
     
     if (error) {
-      console.error('Error performing vector search:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error('Erreur lors de la récupération des entrées:', error);
+      return NextResponse.json({ 
+        error: 'Erreur lors de la récupération des entrées: ' + error.message,
+        details: error
+      }, { status: 500 });
+    }
+    
+    // Si aucune entrée n'est trouvée
+    if (!entries || entries.length === 0) {
+      return NextResponse.json({ 
+        answer: "Je ne trouve aucune entrée dans votre journal. Veuillez ajouter quelques entrées avant de poser des questions." 
+      }, { status: 200 });
     }
     
     // Format the entries for the prompt
@@ -65,12 +77,15 @@ ${notesText}
     
     // Construct the prompt for GPT
     const prompt = `
-En t'appuyant sur les entrées de mon journal, réponds à la question :
+En t'appuyant sur les entrées de mon journal, réponds à la question de manière précise et informative. 
+Voici mes dernières entrées de journal pour référence:
 
 ${entriesSummary}
 
 Question : ${question}
 `;
+    
+    console.log('Envoi du prompt à GPT');
     
     // Generate the response using GPT
     const gptResponse = await generateCompletion(prompt);
@@ -79,7 +94,7 @@ Question : ${question}
   } catch (error) {
     console.error('Error processing question:', error);
     return NextResponse.json(
-      { error: 'Failed to process your question' },
+      { error: 'Failed to process your question', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
