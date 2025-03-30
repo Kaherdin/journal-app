@@ -1,111 +1,56 @@
-"use client";
-
-import { useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Navigation } from "@/components/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default function Home() {
-  const [pageId, setPageId] = useState("");
-  const [markdown, setMarkdown] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [viewMode, setViewMode] = useState<"raw" | "preview">("preview");
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch(`/api/convert?pageId=${encodeURIComponent(pageId)}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to convert Notion page");
-      }
-
-      setMarkdown(data.markdown);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An unknown error occurred");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <main className="flex min-h-screen flex-col items-center p-8 md:p-24">
-      <div className="max-w-5xl w-full">
-        <h1 className="text-4xl font-bold mb-8 text-center">Notion to Markdown Converter</h1>
+    <main className="flex min-h-screen flex-col items-center p-8">
+      <div className="max-w-4xl w-full">
+        <h1 className="text-4xl font-bold mb-8 text-center">Journal Personnel</h1>
         
-        <form onSubmit={handleSubmit} className="mb-8">
-          <div className="mb-4">
-            <label htmlFor="pageId" className="block text-sm font-medium mb-2">
-              Notion Page ID
-            </label>
-            <input
-              type="text"
-              id="pageId"
-              value={pageId}
-              onChange={(e) => setPageId(e.target.value)}
-              placeholder="Enter Notion page ID"
-              className="w-full p-2 border border-gray-300 rounded-md"
-              required
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md disabled:opacity-50"
-          >
-            {loading ? "Converting..." : "Convert to Markdown"}
-          </button>
-        </form>
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
-            <p>{error}</p>
-          </div>
-        )}
-
-        {markdown && (
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold">Generated Markdown</h2>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setViewMode('raw')}
-                  className={`py-1 px-3 rounded-md ${viewMode === 'raw' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-                >
-                  Raw
-                </button>
-                <button
-                  onClick={() => setViewMode('preview')}
-                  className={`py-1 px-3 rounded-md ${viewMode === 'preview' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-                >
-                  Preview
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-4 bg-gray-100 rounded-md">
-              {viewMode === 'raw' ? (
-                <pre className="whitespace-pre-wrap">{markdown}</pre>
-              ) : (
-                <div className="markdown-preview prose">
-                  <ReactMarkdown>{markdown}</ReactMarkdown>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex space-x-2 mt-4">
-              <button
-                onClick={() => navigator.clipboard.writeText(markdown)}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-md"
-              >
-                Copy to Clipboard
-              </button>
-            </div>
-          </div>
-        )}
+        <Navigation />
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Ajouter une entrée</CardTitle>
+              <CardDescription>Créez une nouvelle entrée de journal</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4 text-sm">Enregistrez vos pensées, objectifs et réflexions du jour.</p>
+              <Button asChild className="w-full">
+                <Link href="/add-entry">Commencer</Link>
+              </Button>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Dernières entrées</CardTitle>
+              <CardDescription>Consultez vos entrées récentes</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4 text-sm">Affichez les 10 dernières entrées de votre journal personnel.</p>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/entries">Consulter</Link>
+              </Button>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Poser une question</CardTitle>
+              <CardDescription>Interrogez votre journal</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4 text-sm">Utilisez l'IA pour analyser vos entrées et obtenir des insights.</p>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/ask">Demander</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </main>
   );
