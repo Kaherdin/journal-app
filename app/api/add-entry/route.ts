@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Create embedding from the combined text
-    const textToEmbed = `${entry.mit} ${entry.content} ${entry.gratitude.join(' ')}`;
+    const textToEmbed = `${entry.mit} ${entry.content} ${entry.prompt || ''} ${entry.gratitude ? entry.gratitude.join(' ') : ''}`;
     const embedding = await createEmbedding(textToEmbed);
     
     // Insert into Supabase
@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
         date: entry.date,
         mit: entry.mit,
         content: entry.content,
+        prompt: entry.prompt,
         gratitude: entry.gratitude,
         notes: entry.notes,
         embedding,

@@ -3,8 +3,9 @@ export interface JournalEntry {
   date: string;
   mit: string;
   content: string;
-  gratitude: string[];
-  notes: {
+  prompt?: string;
+  gratitude?: string[];
+  notes?: {
     productivite: number;
     sport: number;
     energie: number;

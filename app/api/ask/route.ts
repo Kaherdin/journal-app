@@ -32,12 +32,33 @@ export async function POST(request: NextRequest) {
     
     // Format the entries for the prompt
     const entriesSummary = entries.map((entry: any) => {
+      // Format gratitude with null/undefined check
+      const gratitudeText = entry.gratitude && entry.gratitude.length > 0 
+        ? `Gratitude: ${entry.gratitude.join(', ')}` 
+        : 'Gratitude: aucune';
+      
+      // Format notes with null/undefined check
+      let notesText = 'Notes: aucune';
+      if (entry.notes) {
+        const noteItems = [];
+        if ('productivite' in entry.notes) noteItems.push(`Productivité: ${entry.notes.productivite}`);
+        if ('sport' in entry.notes) noteItems.push(`Sport: ${entry.notes.sport}`);
+        if ('energie' in entry.notes) noteItems.push(`Énergie: ${entry.notes.energie}`);
+        if ('proprete' in entry.notes) noteItems.push(`Propreté: ${entry.notes.proprete}`);
+        if ('art' in entry.notes) noteItems.push(`Art: ${entry.notes.art}`);
+        
+        if (noteItems.length > 0) {
+          notesText = `Notes: ${noteItems.join(', ')}`;
+        }
+      }
+      
       return `
 Date: ${entry.date}
 MIT: ${entry.mit}
 Content: ${entry.content}
-Gratitude: ${entry.gratitude.join(', ')}
-Notes: Productivité: ${entry.notes.productivite}, Sport: ${entry.notes.sport}, Énergie: ${entry.notes.energie}, Propreté: ${entry.notes.proprete}, Art: ${entry.notes.art}
+${entry.prompt ? `Prompt: ${entry.prompt}` : ''}
+${gratitudeText}
+${notesText}
 ---
 `;
     }).join('\n');
