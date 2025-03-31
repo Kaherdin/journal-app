@@ -1,13 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Navigation } from '@/components/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { JournalEntry } from '@/app/types';
+import { Button } from '@/components/ui/button';
 
 export default function Entries() {
+  const router = useRouter();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isBuildingEmbeddings, setIsBuildingEmbeddings] = useState(false);
+  const [embedMessage, setEmbedMessage] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -24,7 +29,7 @@ export default function Entries() {
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Une erreur est survenue');
       } finally {
-        setLoading(false);
+        setIsLoading(false);
       }
     };
 
@@ -47,14 +52,57 @@ export default function Entries() {
     </div>
   );
 
+  const regenerateEmbeddings = async () => {
+    try {
+      setIsBuildingEmbeddings(true);
+      setEmbedMessage('Régénération des embeddings en cours...');
+      
+      const response = await fetch('/api/regenerate-embeddings', {
+        method: 'GET'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Erreur lors de la régénération des embeddings');
+      }
+      
+      const data = await response.json();
+      setEmbedMessage(`Embeddings régénérés avec succès ! ${data.message}`);
+    } catch (error) {
+      setEmbedMessage(`Erreur: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsBuildingEmbeddings(false);
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center p-8">
       <div className="max-w-4xl w-full">
-        <h1 className="text-4xl font-bold mb-8 text-center">Dernières entrées</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Dernières Entrées</h1>
+          <div className="space-x-2">
+            <Button 
+              onClick={regenerateEmbeddings} 
+              disabled={isBuildingEmbeddings}
+              variant="outline"
+              size="sm"
+            >
+              {isBuildingEmbeddings ? 'Traitement...' : 'Régénérer Embeddings'}
+            </Button>
+            <Button variant="default" onClick={() => router.push('/add-entry')}>
+              Nouvelle Entrée
+            </Button>
+          </div>
+        </div>
+        
+        {embedMessage && (
+          <div className={`p-4 mb-4 rounded ${embedMessage.includes('Erreur') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+            {embedMessage}
+          </div>
+        )}
         
         <Navigation />
         
-        {loading && (
+        {isLoading && (
           <div className="flex justify-center p-12">
             <div className="animate-spin h-8 w-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
           </div>
@@ -66,7 +114,7 @@ export default function Entries() {
           </div>
         )}
         
-        {!loading && !error && entries.length === 0 && (
+        {!isLoading && !error && entries.length === 0 && (
           <div className="text-center p-12">
             <p className="text-lg text-gray-600">Aucune entrée trouvée. Commencez par ajouter votre première entrée.</p>
           </div>

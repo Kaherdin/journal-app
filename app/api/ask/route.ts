@@ -17,12 +17,11 @@ export async function POST(request: NextRequest) {
     
     console.log('Question reçue:', question);
     
-    // Récupérer toutes les entrées (alternative à la recherche vectorielle)
+    // Récupérer TOUTES les entrées, sans limitation
     const { data: entries, error } = await supabase
       .from('journal_entries')
       .select('*')
-      .order('date', { ascending: false })
-      .limit(5);
+      .order('date', { ascending: false });
     
     console.log('Entrées récupérées:', entries?.length);
     console.log('Erreur éventuelle:', error);
@@ -42,8 +41,18 @@ export async function POST(request: NextRequest) {
       }, { status: 200 });
     }
     
+    // Si la question concerne l'année 2024 spécifiquement, filtrer les entrées
+    let relevantEntries = entries;
+    if (question.toLowerCase().includes('2024')) {
+      relevantEntries = entries.filter(entry => entry.date && entry.date.startsWith('2024'));
+      console.log(`Filtrage pour 2024: ${relevantEntries.length} entrées trouvées`);
+    }
+    
+    // Limiter à un maximum de 15 entrées pour éviter de dépasser les limites du contexte
+    relevantEntries = relevantEntries.slice(0, 15);
+    
     // Format the entries for the prompt
-    const entriesSummary = entries.map((entry: any) => {
+    const entriesSummary = relevantEntries.map((entry: any) => {
       // Format gratitude with null/undefined check
       const gratitudeText = entry.gratitude && entry.gratitude.length > 0 
         ? `Gratitude: ${entry.gratitude.join(', ')}` 
@@ -78,7 +87,12 @@ ${notesText}
     // Construct the prompt for GPT
     const prompt = `
 En t'appuyant sur les entrées de mon journal, réponds à la question de manière précise et informative. 
-Voici mes dernières entrées de journal pour référence:
+
+INFORMATION IMPORTANTE: Ma base de données contient ${entries.length} entrées de journal au total. Pour des raisons d'espace, seules quelques entrées représentatives (${relevantEntries.length} au total) sont montrées ci-dessous.
+
+Si la question porte sur le nombre total d'entrées, le nombre exact est ${entries.length}.
+
+Voici les entrées représentatives:
 
 ${entriesSummary}
 

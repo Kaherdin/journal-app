@@ -11,6 +11,7 @@ export function Navigation() {
   const navItems = [
     { path: '/', label: 'Accueil' },
     { path: '/add-entry', label: 'Ajouter une entrée' },
+    { path: '/generate-entry', label: 'Générer avec IA' },
     { path: '/entries', label: 'Dernières entrées' },
     { path: '/ask', label: 'Poser une question' },
   ];
