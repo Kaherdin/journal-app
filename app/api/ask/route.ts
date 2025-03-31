@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import supabase from '@/app/lib/supabase';
-import { generateCompletion } from '@/app/lib/openai';
+import { createEmbedding, generateCompletion } from '@/app/lib/openai';
 import { AskQuestion } from '@/app/types';
 
 export async function POST(request: NextRequest) {
@@ -17,158 +17,206 @@ export async function POST(request: NextRequest) {
     
     console.log('Question reçue:', question);
     
-    // Détecter s'il y a une année spécifique dans la question
+    // Étape 1: Détection d'année dans la question pour filtrage supplémentaire
     const yearMatch = question.match(/\b(20\d{2})\b/);
-    let journalEntries;
+    const yearFilter = yearMatch ? yearMatch[1] : null;
     
-    // Si une année spécifique est mentionnée, filtrer par cette année
-    if (yearMatch) {
-      const year = yearMatch[1];
-      console.log(`Filtrage par année: ${year}`);
+    // Étape 2: Générer un embedding pour la question
+    const embedding = await createEmbedding(question);
+    
+    // Étape 3: Recherche vectorielle pour trouver les entrées sémantiquement pertinentes
+    const { data: vectorEntries, error: vectorError } = await supabase.rpc(
+      'match_entries',
+      {
+        query_embedding: embedding,
+        match_threshold: 0.3,
+        match_count: 100 // Augmenté pour avoir un échantillon plus large
+      }
+    );
+    
+    if (vectorError) {
+      console.error('Erreur lors de la recherche vectorielle:', vectorError);
       
-      const { data, error } = await supabase
+      // Fallback: récupérer les entrées en fonction du filtre d'année si présent
+      let query = supabase
         .from('journal_entries')
-        .select('*')
-        .gte('date', `${year}-01-01`)
-        .lte('date', `${year}-12-31`)
-        .order('date', { ascending: false });
+        .select('*');
       
-      if (error) {
-        console.error('Erreur lors de la récupération des entrées:', error);
+      // Appliquer le filtre d'année si présent
+      if (yearFilter) {
+        query = query
+          .gte('date', `${yearFilter}-01-01`)
+          .lte('date', `${yearFilter}-12-31`);
+      }
+      
+      const { data: fallbackEntries, error: fallbackError } = await query
+        .order('date', { ascending: false })
+        .limit(500); // Augmenté à 500 pour avoir un échantillon bien plus large
+      
+      if (fallbackError) {
         return NextResponse.json({ 
           error: 'Erreur lors de la récupération des entrées', 
-          details: error 
+          details: fallbackError 
         }, { status: 500 });
       }
       
-      journalEntries = data || [];
-      console.log(`Récupéré ${journalEntries.length} entrées pour l'année ${year}`);
-    } 
-    // Sinon, récupérer toutes les entrées
-    else {
-      const { data, error } = await supabase
-        .from('journal_entries')
-        .select('*')
-        .order('date', { ascending: false });
+      console.log(`Utilisation du fallback: ${fallbackEntries?.length || 0} entrées récupérées${yearFilter ? ` pour ${yearFilter}` : ''}`);
       
-      if (error) {
-        console.error('Erreur lors de la récupération des entrées:', error);
+      // Continuer avec ces entrées
+      return await processEntriesAndGenerateResponse(question, fallbackEntries || [], yearFilter);
+    }
+    
+    console.log(`Recherche vectorielle réussie: ${vectorEntries?.length || 0} entrées trouvées`);
+    
+    // Filtrer par année si mentionnée dans la question
+    let relevantEntries = vectorEntries || [];
+    if (yearFilter && relevantEntries.length > 0) {
+      const yearStart = new Date(`${yearFilter}-01-01`).toISOString().split('T')[0];
+      const yearEnd = new Date(`${yearFilter}-12-31`).toISOString().split('T')[0];
+      relevantEntries = relevantEntries.filter(entry => 
+        entry.date >= yearStart && entry.date <= yearEnd
+      );
+      console.log(`Après filtrage par année ${yearFilter}: ${relevantEntries.length} entrées`);
+    }
+    
+    // Si aucune entrée pertinente n'est trouvée, récupérer toutes les entrées
+    if (relevantEntries.length === 0) {
+      let query = supabase
+        .from('journal_entries')
+        .select('*');
+      
+      // Appliquer le filtre d'année si présent
+      if (yearFilter) {
+        query = query
+          .gte('date', `${yearFilter}-01-01`)
+          .lte('date', `${yearFilter}-12-31`);
+      }
+      
+      const { data: allEntries, error: allError } = await query
+        .order('date', { ascending: false })
+        .limit(100);
+      
+      if (allError) {
         return NextResponse.json({ 
           error: 'Erreur lors de la récupération des entrées', 
-          details: error 
+          details: allError 
         }, { status: 500 });
       }
       
-      journalEntries = data || [];
-      console.log(`Récupéré ${journalEntries.length} entrées au total`);
+      console.log(`Aucune entrée vectorielle pertinente, utilisation de ${allEntries?.length || 0} entrées générales${yearFilter ? ` pour ${yearFilter}` : ''}`);
+      
+      // Continuer avec toutes les entrées
+      return await processEntriesAndGenerateResponse(question, allEntries || [], yearFilter);
     }
     
-    // Si aucune entrée n'est trouvée
-    if (!journalEntries || journalEntries.length === 0) {
-      console.log('Aucune entrée trouvée');
-      return NextResponse.json({ 
-        answer: "Je ne trouve aucune entrée dans votre journal" + (yearMatch ? ` pour l'année ${yearMatch[1]}` : "") + ". Veuillez ajouter des entrées avant de poser des questions."
-      }, { status: 200 });
-    }
+    // Continuer avec les entrées trouvées par la recherche vectorielle
+    return await processEntriesAndGenerateResponse(question, relevantEntries, yearFilter);
     
-    // Préparer les entrées pour le modèle GPT
-    // Nous devons limiter la taille du prompt, donc si trop d'entrées, 
-    // prenons un échantillon représentatif
-    const MAX_ENTRIES = 100; // Nombre maximum d'entrées à inclure
-    const totalEntries = journalEntries.length;
+  } catch (error) {
+    console.error('Erreur:', error);
+    return NextResponse.json(
+      { error: 'Une erreur est survenue lors du traitement de votre question', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
+  }
+}
+
+// Fonction utilitaire pour traiter les entrées et générer une réponse
+async function processEntriesAndGenerateResponse(question: string, entries: any[], yearFilter: string | null) {
+  try {
+    // Compter les entrées par année pour le contexte
+    const entriesByYear: Record<string, number> = {};
+    entries.forEach(entry => {
+      const year = new Date(entry.date).getFullYear().toString();
+      entriesByYear[year] = (entriesByYear[year] || 0) + 1;
+    });
     
-    let entriesToInclude;
-    let entrySummary;
+    const yearStats = Object.entries(entriesByYear)
+      .map(([year, count]) => `${year}: ${count} entrées`)
+      .join(', ');
     
-    if (totalEntries <= MAX_ENTRIES) {
-      // Si on a moins d'entrées que la limite, les inclure toutes
-      entriesToInclude = journalEntries;
-      entrySummary = `Toutes les ${totalEntries} entrées sont incluses ci-dessous.`;
-    } else {
-      // Stratégie d'échantillonnage: prendre des entrées réparties sur toute la période
-      const samplingStep = Math.ceil(totalEntries / MAX_ENTRIES);
-      entriesToInclude = [];
+    // Préparer le contexte pour OpenAI
+    const contextEntries = entries.map((entry: any) => {
+      const formattedDate = new Date(entry.date).toLocaleDateString('fr-FR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
       
-      for (let i = 0; i < totalEntries; i += samplingStep) {
-        entriesToInclude.push(journalEntries[i]);
-      }
+      const gratitudeText = entry.gratitude && Array.isArray(entry.gratitude) && entry.gratitude.length > 0
+        ? `Choses pour lesquelles je suis reconnaissant: ${entry.gratitude.join(', ')}` 
+        : '';
       
-      entrySummary = `${entriesToInclude.length} entrées sur un total de ${totalEntries} sont incluses ci-dessous (échantillon représentatif).`;
-    }
-    
-    console.log(`Envoi de ${entriesToInclude.length} entrées à GPT`);
-    
-    // Formater les entrées pour le prompt
-    const entriesText = entriesToInclude.map((entry: any) => {
-      // Format gratitude with null/undefined check
-      const gratitudeText = entry.gratitude && entry.gratitude.length > 0 
-        ? `Gratitude: ${entry.gratitude.join(', ')}` 
-        : 'Gratitude: Non spécifiée';
-      
-      // Format notes with null/undefined check
       let notesText = '';
       if (entry.notes) {
-        const noteItems = [];
-        if ('productivite' in entry.notes) noteItems.push(`Productivité: ${entry.notes.productivite}`);
-        if ('sport' in entry.notes) noteItems.push(`Sport: ${entry.notes.sport}`);
-        if ('energie' in entry.notes) noteItems.push(`Énergie: ${entry.notes.energie}`);
-        if ('proprete' in entry.notes) noteItems.push(`Propreté: ${entry.notes.proprete}`);
-        if ('art' in entry.notes) noteItems.push(`Art: ${entry.notes.art}`);
-        
-        if (noteItems.length > 0) {
-          notesText = `Notes: ${noteItems.join(', ')}`;
+        try {
+          const notesObj = typeof entry.notes === 'string' ? JSON.parse(entry.notes) : entry.notes;
+          notesText = Object.entries(notesObj)
+            .map(([key, value]) => `${key}: ${value}/10`)
+            .join(', ');
+        } catch (e) {
+          console.warn(`Erreur lors du parsing des notes pour l'entrée du ${entry.date}:`, e);
         }
       }
       
       return `
-Date: ${entry.date}
-MIT: ${entry.mit || 'Non spécifié'}
-Content: ${entry.content || 'Non spécifié'}
-${entry.prompt ? `Prompt: ${entry.prompt}` : ''}
-${gratitudeText}
-${notesText}
+DATE: ${formattedDate}
+TÂCHE PRINCIPALE: ${entry.mit || 'Non spécifiée'}
+CONTENU: ${entry.content || ''}
+${gratitudeText ? `GRATITUDE: ${gratitudeText}` : ''}
+${notesText ? `NOTES: ${notesText}` : ''}
+${entry.similarity ? `PERTINENCE: ${(entry.similarity * 100).toFixed(2)}%` : ''}
 ---
-`;
-    }).join('\n');
+      `.trim();
+    }).join('\n\n');
     
-    // Construire le prompt pour GPT
+    // Déterminer si nous avons une question spécifique à une année
+    const yearContext = yearFilter 
+      ? `Tu remarqueras que la question concerne spécifiquement l'année ${yearFilter}.` 
+      : '';
+    
+    // Construire le prompt pour OpenAI
     const prompt = `
-Tu es un assistant d'analyse de journal personnel. Tu as accès aux entrées du journal personnel de l'utilisateur. Utilise ces entrées pour répondre à la question posée.
-
-Contexte: L'utilisateur tient un journal personnel avec:
-- Date: La date de l'entrée
-- MIT: La tâche la plus importante de la journée (Most Important Task)
-- Content: Le contenu principal de l'entrée
-- Gratitude: Les choses dont il/elle est reconnaissant(e)
-- Notes: Des évaluations numériques sur différents aspects (productivité, sport, énergie, etc.)
-
-Base de données: ${totalEntries} entrées au total. ${entrySummary}
-
-Entrées du journal:
-${entriesText}
+Tu es un assistant d'analyse de journal personnel. Tu analyses mes entrées de journal pour répondre à mes questions de manière précise.
 
 Question: ${question}
 
-Instructions:
-1. Analyse attentivement toutes les entrées fournies
-2. Réponds à la question de manière précise et basée uniquement sur les données des entrées
-3. Si l'information n'est pas disponible dans les entrées, dis-le clairement
-4. Cite des entrées spécifiques si pertinent
-5. Réponds en français et de manière claire
+Informations sur mon journal:
+- Nombre total d'entrées fournies: ${entries.length}
+- Répartition par année: ${yearStats}
+${yearContext}
 
-Ta réponse:
-`;
+Voici mes entrées de journal les plus pertinentes par rapport à ma question:
+
+${contextEntries}
+
+Instructions pour ta réponse:
+1. Réponds uniquement en te basant sur les informations présentes dans ces entrées de journal.
+2. Si les entrées ne contiennent pas suffisamment d'informations pour répondre à ma question, dis-le clairement.
+3. Présente les informations de manière organisée et claire, avec des exemples spécifiques tirés des entrées.
+4. Si ma question porte sur des statistiques ou tendances (comme "quel mois j'ai été le plus productif"), calcule et présente ces statistiques.
+5. Cite les dates spécifiques des entrées pour appuyer tes observations.
+    `.trim();
     
-    console.log('Envoi du prompt à GPT');
+    // Générer la réponse avec OpenAI
+    const response = await generateCompletion(prompt);
     
-    // Generate the response using GPT
-    const gptResponse = await generateCompletion(prompt);
-    
-    return NextResponse.json({ answer: gptResponse }, { status: 200 });
+    // Retourner la réponse et les entrées utilisées
+    return NextResponse.json({
+      answer: response,
+      entriesCount: entries.length,
+      yearStats: entriesByYear,
+      entries: entries.slice(0, 10).map(entry => ({
+        id: entry.id,
+        date: entry.date,
+        mit: entry.mit,
+        similarity: entry.similarity || null
+      }))
+    });
   } catch (error) {
-    console.error('Error processing question:', error);
+    console.error('Erreur lors du traitement des entrées:', error);
     return NextResponse.json(
-      { error: 'Failed to process your question', details: error instanceof Error ? error.message : String(error) },
+      { error: 'Une erreur est survenue lors de la génération de la réponse', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }

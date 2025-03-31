@@ -24,13 +24,22 @@ export async function GET() {
     // Process entries in batches to avoid rate limiting
     const batchSize = 5;
     const results = [];
+    let successCount = 0;
+    let errorCount = 0;
     
     for (let i = 0; i < entries.length; i += batchSize) {
       const batch = entries.slice(i, i + batchSize);
+      console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(entries.length/batchSize)}, entries ${i+1}-${Math.min(i+batchSize, entries.length)}`);
+      
       const batchResults = await Promise.all(batch.map(async (entry: JournalEntry) => {
         try {
           // Create text to embed
-          const textToEmbed = `${entry.mit} ${entry.content} ${entry.prompt || ''} ${entry.gratitude ? entry.gratitude.join(' ') : ''}`;
+          const textToEmbed = `${entry.mit || ''} ${entry.content || ''} ${entry.prompt || ''} ${entry.gratitude ? entry.gratitude.join(' ') : ''}`;
+          
+          if (!textToEmbed.trim()) {
+            console.warn(`Entry ${entry.id} (${entry.date}) has no content to embed`);
+            return { id: entry.id, success: false, error: 'No content to embed', date: entry.date };
+          }
           
           // Generate embedding
           const embedding = await createEmbedding(textToEmbed);
@@ -44,13 +53,16 @@ export async function GET() {
           
           if (error) {
             console.error(`Error updating entry ${entry.id}:`, error);
-            return { id: entry.id, success: false, error: error.message };
+            errorCount++;
+            return { id: entry.id, success: false, error: error.message, date: entry.date };
           }
           
+          successCount++;
           return { id: entry.id, success: true, date: entry.date, mit: entry.mit };
         } catch (err) {
           console.error(`Error processing entry ${entry.id}:`, err);
-          return { id: entry.id, success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+          errorCount++;
+          return { id: entry.id, success: false, error: err instanceof Error ? err.message : 'Unknown error', date: entry.date };
         }
       }));
       
@@ -62,10 +74,8 @@ export async function GET() {
       }
     }
     
-    const successful = results.filter(r => r.success).length;
-    
     return NextResponse.json({
-      message: `Processed ${entries.length} entries. Successfully updated ${successful} embeddings.`,
+      message: `Processed ${entries.length} entries. Successfully updated ${successCount} embeddings. ${errorCount} errors.`,
       results
     }, { status: 200 });
   } catch (error) {
