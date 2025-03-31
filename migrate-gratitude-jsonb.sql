@@ -1,11 +1,11 @@
 -- Étape 1: Ajouter une nouvelle colonne jsonb
 ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS gratitude_json jsonb;
 
--- Étape 2: Migrer les données existantes
+-- Étape 2: Migrer les données existantes (approche par ligne)
 UPDATE journal_entries
 SET gratitude_json = CASE
     WHEN gratitude IS NULL THEN NULL
-    ELSE jsonb_build_array(VARIADIC array_agg(gratitude))
+    ELSE to_jsonb(gratitude)
 END;
 
 -- Étape 3: Supprimer l'ancienne colonne (optionnel - décommentez après vérification)

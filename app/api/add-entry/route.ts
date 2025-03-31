@@ -17,7 +17,24 @@ export async function POST(request: NextRequest) {
     }
     
     // Create embedding from the combined text
-    const textToEmbed = `${entry.mit} ${entry.content} ${entry.prompt || ''} ${entry.gratitude ? entry.gratitude.join(' ') : ''}`;
+    let textToEmbed = `${entry.mit} ${entry.content} ${entry.prompt || ''}`;
+    
+    // Traiter le champ gratitude selon son format
+    if (entry.gratitude) {
+      if (Array.isArray(entry.gratitude)) {
+        textToEmbed += ' ' + entry.gratitude.join(' ');
+      } else if (typeof entry.gratitude === 'object') {
+        try {
+          const gratitudeValues = Object.values(entry.gratitude);
+          textToEmbed += ' ' + gratitudeValues.join(' ');
+        } catch (e) {
+          console.warn(`Erreur lors du traitement de gratitude:`, e);
+        }
+      } else if (typeof entry.gratitude === 'string') {
+        textToEmbed += ' ' + entry.gratitude;
+      }
+    }
+    
     const embedding = await createEmbedding(textToEmbed);
     
     // Insert into Supabase
