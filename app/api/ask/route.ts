@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       {
         query_embedding: embedding,
         match_threshold: 0.3,
-        match_count: 100 // Augmenté pour avoir un échantillon plus large
+        match_count: 1000 // Augmenté pour avoir un échantillon complet de la base
       }
     );
     
@@ -135,13 +135,53 @@ async function processEntriesAndGenerateResponse(question: string, entries: any[
       .map(([year, count]) => `${year}: ${count} entrées`)
       .join(', ');
     
-    // Préparer le contexte pour OpenAI
-    const contextEntries = entries.map((entry: any) => {
+    // Limiter intelligemment le nombre d'entrées en fonction de leur taille
+    // On estime approximativement qu'une entrée moyenne = ~500 tokens
+    const MAX_TOKENS = 100000; // Légèrement en dessous de la limite de 128k pour garder une marge
+    const ESTIMATED_TOKENS_PER_ENTRY = 500;
+    const MAX_ENTRIES = Math.floor(MAX_TOKENS / ESTIMATED_TOKENS_PER_ENTRY);
+    
+    let entriesToUse = entries;
+    
+    // Si nous avons trop d'entrées, nous devons échantillonner
+    if (entries.length > MAX_ENTRIES) {
+      console.log(`Trop d'entrées (${entries.length}) pour le contexte, échantillonnage à ${MAX_ENTRIES}`);
+      
+      // Stratégie d'échantillonnage:
+      // 1. Garder les entrées les plus pertinentes (avec la plus grande similitude si disponible)
+      // 2. Assurer une bonne distribution sur les différentes périodes
+      
+      if (entries[0].similarity !== undefined) {
+        // Si nous avons des scores de similarité, prioriser les entrées les plus pertinentes
+        entriesToUse = [...entries].sort((a, b) => (b.similarity || 0) - (a.similarity || 0)).slice(0, MAX_ENTRIES);
+      } else {
+        // Sinon, échantillonner de manière uniforme
+        const step = Math.ceil(entries.length / MAX_ENTRIES);
+        entriesToUse = [];
+        for (let i = 0; i < entries.length; i += step) {
+          entriesToUse.push(entries[i]);
+        }
+        // Garantir que nous ne dépassons pas MAX_ENTRIES
+        entriesToUse = entriesToUse.slice(0, MAX_ENTRIES);
+      }
+      
+      console.log(`Échantillonnage terminé : ${entriesToUse.length} entrées sélectionnées`);
+    }
+    
+    // Préparer le contexte pour OpenAI avec le sous-ensemble limité
+    const contextEntries = entriesToUse.map((entry: any) => {
       const formattedDate = new Date(entry.date).toLocaleDateString('fr-FR', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
       });
+      
+      // Tronquer le contenu si nécessaire pour les entrées très longues
+      const maxContentLength = 1000; // Environ 250 tokens
+      let content = entry.content || '';
+      if (content.length > maxContentLength) {
+        content = content.substring(0, maxContentLength) + '... [contenu tronqué]';
+      }
       
       const gratitudeText = entry.gratitude && Array.isArray(entry.gratitude) && entry.gratitude.length > 0
         ? `Choses pour lesquelles je suis reconnaissant: ${entry.gratitude.join(', ')}` 
@@ -162,7 +202,7 @@ async function processEntriesAndGenerateResponse(question: string, entries: any[
       return `
 DATE: ${formattedDate}
 TÂCHE PRINCIPALE: ${entry.mit || 'Non spécifiée'}
-CONTENU: ${entry.content || ''}
+CONTENU: ${content}
 ${gratitudeText ? `GRATITUDE: ${gratitudeText}` : ''}
 ${notesText ? `NOTES: ${notesText}` : ''}
 ${entry.similarity ? `PERTINENCE: ${(entry.similarity * 100).toFixed(2)}%` : ''}
@@ -182,7 +222,8 @@ Tu es un assistant d'analyse de journal personnel. Tu analyses mes entrées de j
 Question: ${question}
 
 Informations sur mon journal:
-- Nombre total d'entrées fournies: ${entries.length}
+- Total des entrées dans ma base: ${entries.length}
+- Entrées analysées pour cette question: ${entriesToUse.length}${entriesToUse.length < entries.length ? ` (échantillon des plus pertinentes)` : ''}
 - Répartition par année: ${yearStats}
 ${yearContext}
 
@@ -205,8 +246,9 @@ Instructions pour ta réponse:
     return NextResponse.json({
       answer: response,
       entriesCount: entries.length,
+      entriesAnalyzed: entriesToUse.length,
       yearStats: entriesByYear,
-      entries: entries.slice(0, 10).map(entry => ({
+      entries: entriesToUse.slice(0, 10).map(entry => ({
         id: entry.id,
         date: entry.date,
         mit: entry.mit,

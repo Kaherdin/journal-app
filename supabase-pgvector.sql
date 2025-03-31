@@ -8,7 +8,7 @@ ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS embedding vector(1536);
 CREATE INDEX IF NOT EXISTS journal_entries_embedding_idx 
 ON journal_entries 
 USING ivfflat (embedding vector_l2_ops) 
-WITH (lists = 100);
+WITH (lists = 1000);
 
 -- Supprimer la fonction existante avant de la recréer
 DROP FUNCTION IF EXISTS match_entries(vector(1536), float, integer);
@@ -17,7 +17,7 @@ DROP FUNCTION IF EXISTS match_entries(vector(1536), float, integer);
 CREATE OR REPLACE FUNCTION match_entries(
   query_embedding vector(1536),
   match_threshold float DEFAULT 0.3,
-  match_count int DEFAULT 100
+  match_count int DEFAULT 1000
 )
 RETURNS TABLE (
   id uuid,
