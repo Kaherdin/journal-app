@@ -6,33 +6,49 @@ import { Navigation } from '@/components/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { JournalEntry } from '@/app/types';
 import { Button } from '@/components/ui/button';
+import { Trash2 } from 'lucide-react';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function Entries() {
   const router = useRouter();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isBuildingEmbeddings, setIsBuildingEmbeddings] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [embedMessage, setEmbedMessage] = useState('');
+  const [deleteMessage, setDeleteMessage] = useState('');
   const [error, setError] = useState('');
+  const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
+
+  const fetchEntries = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/get-last-entries');
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors de la récupération des entrées');
+      }
+
+      setEntries(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchEntries = async () => {
-      try {
-        const response = await fetch('/api/get-last-entries');
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Erreur lors de la récupération des entrées');
-        }
-
-        setEntries(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Une erreur est survenue');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchEntries();
   }, []);
 
@@ -74,6 +90,35 @@ export default function Entries() {
     }
   };
 
+  const deleteEntry = async (id: string) => {
+    try {
+      setIsDeleting(true);
+      setDeleteMessage('');
+      
+      const response = await fetch(`/api/delete-entry?id=${id}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erreur lors de la suppression');
+      }
+      
+      // Rafraîchir la liste des entrées
+      fetchEntries();
+      setDeleteMessage('Entrée supprimée avec succès');
+      
+      // Masquer le message après 3 secondes
+      setTimeout(() => {
+        setDeleteMessage('');
+      }, 3000);
+    } catch (error) {
+      setDeleteMessage(`Erreur: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <main className="flex min-h-screen flex-col items-center p-8">
       <div className="max-w-4xl w-full">
@@ -100,6 +145,12 @@ export default function Entries() {
           </div>
         )}
         
+        {deleteMessage && (
+          <div className={`p-4 mb-4 rounded ${deleteMessage.includes('Erreur') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+            {deleteMessage}
+          </div>
+        )}
+        
         <Navigation />
         
         {isLoading && (
@@ -121,12 +172,45 @@ export default function Entries() {
         )}
         
         <div className="space-y-6">
-          {entries.map((entry, index) => (
-            <Card key={index} className="overflow-hidden">
+          {entries.map((entry, index) => {
+            console.log(entry)
+            return (
+            <Card key={entry.id || `entry-${index}`} className="overflow-hidden">
               <CardHeader className="bg-gray-50">
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-xl">{new Date(entry.date).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</CardTitle>
-                  <span className="text-sm text-gray-500">{entry.date}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-500">{entry.id}</span>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 size={18} />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette entrée ?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Cette action est irréversible. L'entrée du {new Date(entry.date).toLocaleDateString('fr-FR')} sera définitivement supprimée.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annuler</AlertDialogCancel>
+                          <AlertDialogAction 
+                            className="bg-red-500 hover:bg-red-600"
+                            onClick={() => deleteEntry(entry.id)}
+                            disabled={isDeleting}
+                          >
+                            {isDeleting ? 'Suppression...' : 'Supprimer'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="pt-6">
@@ -153,7 +237,7 @@ export default function Entries() {
                       <h3 className="font-medium mb-2">Gratitude</h3>
                       <ul className="list-disc pl-5 space-y-1">
                         {entry.gratitude.map((item, i) => (
-                          <li key={i} className="text-gray-800">{item}</li>
+                          <li key={`${entry.id}-gratitude-${i}`} className="text-gray-800">{item}</li>
                         ))}
                       </ul>
                     </div>
@@ -174,7 +258,7 @@ export default function Entries() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
       </div>
     </main>
