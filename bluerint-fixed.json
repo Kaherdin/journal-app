@@ -23,17 +23,26 @@
     },
     {
       "id": 2,
-      "module": "json:ParseJSON",
+      "module": "util:SetVariable2",
       "version": 1,
       "parameters": {},
       "mapper": {
-        "json": "{\"art\": {{1.art}}, \"sport\": {{1.sport}}, \"energie\": {{1.energie}}, \"proprete\": {{1.propreté}}, \"productivite\": {{1.productivité}}}"
+        "name": "notesObject",
+        "scope": "roundtrip",
+        "value": {
+          "art": "{{1.art}}",
+          "sport": "{{1.sport}}",
+          "energie": "{{1.energie}}",
+          "proprete": "{{1.propreté}}",
+          "productivite": "{{1.productivité}}"
+        }
       },
       "metadata": {
         "designer": {
           "x": 0,
           "y": -100
-        }
+        },
+        "notes": "Cette étape crée un objet structuré pour le champ notes: {art: 1, sport: 10, ...}"
       }
     },
     {
@@ -66,14 +75,15 @@
         "mit": "{{1.MIT}}",
         "content": "{{1.Content}}",
         "gratitude": "{{3.gratitudeArray}}",
-        "notes": "{{2.result}}",
+        "notes": "{{2.notesObject}}",
         "prompt": "{{1.Prompt}}"
       },
       "metadata": {
         "designer": {
           "x": 300,
           "y": 0
-        }
+        },
+        "notes": "Le champ notes recevra l'objet structuré du module 2"
       }
     }
   ],
@@ -88,6 +98,15 @@
       "orphans": []
     },
     "zone": "eu1.make.com",
-    "notes": []
+    "notes": [
+      {
+        "content": "Ce blueprint convertit le champ \"notes\" en un objet JSONB structuré",
+        "color": "#5bc0de",
+        "coords": {
+          "x": 0,
+          "y": -200
+        }
+      }
+    ]
   }
 }
