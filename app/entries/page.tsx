@@ -28,7 +28,6 @@ export default function Entries() {
   const [embedMessage, setEmbedMessage] = useState('');
   const [deleteMessage, setDeleteMessage] = useState('');
   const [error, setError] = useState('');
-  const [entryToDelete, setEntryToDelete] = useState<string | null>(null);
 
   const fetchEntries = async () => {
     try {
@@ -51,6 +50,38 @@ export default function Entries() {
   useEffect(() => {
     fetchEntries();
   }, []);
+
+  const deleteEntry = async (id: string) => {
+    try {
+      setIsDeleting(true);
+      setDeleteMessage('');
+      
+      const response = await fetch(`/api/delete-entry?id=${id}`, {
+        method: 'DELETE',
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors de la suppression');
+      }
+      
+      // Supprimer l'entrée du state local
+      setEntries(entries.filter(entry => entry.id !== id));
+      
+      // Afficher un message de succès
+      setDeleteMessage('Entrée supprimée avec succès');
+      setTimeout(() => {
+        setDeleteMessage('');
+      }, 3000);
+      
+    } catch (err) {
+      console.error('Erreur:', err);
+      setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // Format a note to show as a progress bar with label
   const formatNote = (value: number, label: string) => (
@@ -90,35 +121,6 @@ export default function Entries() {
     }
   };
 
-  const deleteEntry = async (id: string) => {
-    try {
-      setIsDeleting(true);
-      setDeleteMessage('');
-      
-      const response = await fetch(`/api/delete-entry?id=${id}`, {
-        method: 'DELETE'
-      });
-      
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Erreur lors de la suppression');
-      }
-      
-      // Rafraîchir la liste des entrées
-      fetchEntries();
-      setDeleteMessage('Entrée supprimée avec succès');
-      
-      // Masquer le message après 3 secondes
-      setTimeout(() => {
-        setDeleteMessage('');
-      }, 3000);
-    } catch (error) {
-      setDeleteMessage(`Erreur: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   return (
     <main className="flex min-h-screen flex-col items-center p-8">
       <div className="max-w-4xl w-full">
@@ -146,7 +148,7 @@ export default function Entries() {
         )}
         
         {deleteMessage && (
-          <div className={`p-4 mb-4 rounded ${deleteMessage.includes('Erreur') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+          <div className="bg-green-100 text-green-800 px-4 py-2 mb-4 rounded-md">
             {deleteMessage}
           </div>
         )}
@@ -172,15 +174,13 @@ export default function Entries() {
         )}
         
         <div className="space-y-6">
-          {entries.map((entry, index) => {
-            console.log(entry)
-            return (
+          {entries.map((entry, index) => (
             <Card key={entry.id || `entry-${index}`} className="overflow-hidden">
               <CardHeader className="bg-gray-50">
                 <div className="flex justify-between items-start">
                   <CardTitle className="text-xl">{new Date(entry.date).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</CardTitle>
                   <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-500">{entry.id}</span>
+                    <span className="text-sm text-gray-500">{entry.date}</span>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button 
@@ -202,8 +202,8 @@ export default function Entries() {
                           <AlertDialogCancel>Annuler</AlertDialogCancel>
                           <AlertDialogAction 
                             className="bg-red-500 hover:bg-red-600"
-                            onClick={() => deleteEntry(entry.id)}
-                            disabled={isDeleting}
+                            onClick={() => deleteEntry(entry.id || '')}
+                            disabled={isDeleting || !entry.id}
                           >
                             {isDeleting ? 'Suppression...' : 'Supprimer'}
                           </AlertDialogAction>
@@ -258,7 +258,7 @@ export default function Entries() {
                 </div>
               </CardContent>
             </Card>
-          )})}
+          ))}
         </div>
       </div>
     </main>

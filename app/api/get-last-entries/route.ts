@@ -6,7 +6,7 @@ export async function GET() {
     // Query Supabase for the 10 most recent entries
     const { data, error } = await supabase
       .from('journal_entries')
-      .select('date, mit, content, prompt, gratitude, notes')
+      .select('id, date, mit, content, prompt, gratitude, notes')
       .order('date', { ascending: false })
       .limit(10);
     
