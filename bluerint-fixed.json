@@ -1,0 +1,93 @@
+{
+  "name": "Airtable → Supabase JSONB",
+  "flow": [
+    {
+      "id": 1,
+      "module": "airtable:ActionSearchRecords",
+      "version": 3,
+      "parameters": {
+        "__IMTCONN__": 3163234
+      },
+      "mapper": {
+        "base": "appeIZyIpK8s2w7zK",
+        "useColumnId": false,
+        "table": "tblBYVBWsKevT3PKl",
+        "maxRecords": "1"
+      },
+      "metadata": {
+        "designer": {
+          "x": -300,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": 2,
+      "module": "json:ParseJSON",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "json": "{\"art\": {{1.art}}, \"sport\": {{1.sport}}, \"energie\": {{1.energie}}, \"proprete\": {{1.propreté}}, \"productivite\": {{1.productivité}}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": -100
+        }
+      }
+    },
+    {
+      "id": 3,
+      "module": "util:SetVariable2",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "name": "gratitudeArray",
+        "scope": "roundtrip",
+        "value": "{{map(split(1.gratitude; \",\"); (item) -> trim(item))}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 120
+        }
+      }
+    },
+    {
+      "id": 4,
+      "module": "supabase:createARow",
+      "version": 1,
+      "parameters": {
+        "__IMTCONN__": 3166463
+      },
+      "mapper": {
+        "table": "journal_entries",
+        "date": "{{1.Date}}",
+        "mit": "{{1.MIT}}",
+        "content": "{{1.Content}}",
+        "gratitude": "{{3.gratitudeArray}}",
+        "notes": "{{2.result}}",
+        "prompt": "{{1.Prompt}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "slots": null
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "eu1.make.com",
+    "notes": []
+  }
+}
