@@ -183,9 +183,38 @@ async function processEntriesAndGenerateResponse(question: string, entries: any[
         content = content.substring(0, maxContentLength) + '... [contenu tronqué]';
       }
       
-      const gratitudeText = entry.gratitude && Array.isArray(entry.gratitude) && entry.gratitude.length > 0
-        ? `Choses pour lesquelles je suis reconnaissant: ${entry.gratitude.join(', ')}` 
-        : '';
+      // Traiter le champ gratitude qui peut désormais être en format jsonb
+      let gratitudeText = '';
+      if (entry.gratitude) {
+        try {
+          // Gérer les différents formats possibles de gratitude
+          if (Array.isArray(entry.gratitude)) {
+            // Format ancien (tableau de chaînes)
+            gratitudeText = `Choses pour lesquelles je suis reconnaissant: ${entry.gratitude.join(', ')}`;
+          } else if (typeof entry.gratitude === 'object') {
+            // Format nouveau (jsonb)
+            const gratitudeEntries = Object.entries(entry.gratitude);
+            if (gratitudeEntries.length > 0) {
+              gratitudeText = 'Choses pour lesquelles je suis reconnaissant: ';
+              gratitudeText += gratitudeEntries
+                .map(([key, value]) => {
+                  // Si la clé est un nombre, c'est probablement un tableau JSON
+                  if (!isNaN(Number(key))) {
+                    return value;
+                  } else {
+                    return `${key}: ${value}`;
+                  }
+                })
+                .join(', ');
+            }
+          } else if (typeof entry.gratitude === 'string') {
+            // Cas où c'est une chaîne simple
+            gratitudeText = `Choses pour lesquelles je suis reconnaissant: ${entry.gratitude}`;
+          }
+        } catch (e) {
+          console.warn(`Erreur lors du traitement de gratitude pour l'entrée du ${entry.date}:`, e);
+        }
+      }
       
       let notesText = '';
       if (entry.notes) {

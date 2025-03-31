@@ -4,7 +4,7 @@ export interface JournalEntry {
   mit: string;
   content: string;
   prompt?: string;
-  gratitude?: string[];
+  gratitude?: any; // Changé de string[] à any pour supporter le format jsonb
   notes?: {
     productivite: number;
     sport: number;

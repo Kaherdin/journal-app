@@ -34,7 +34,26 @@ export async function GET() {
       const batchResults = await Promise.all(batch.map(async (entry: JournalEntry) => {
         try {
           // Create text to embed
-          const textToEmbed = `${entry.mit || ''} ${entry.content || ''} ${entry.prompt || ''} ${entry.gratitude ? entry.gratitude.join(' ') : ''}`;
+          const textToEmbed = `${entry.mit || ''} ${entry.content || ''} ${entry.prompt || ''}`;
+
+          // Ajouter la gratitude au texte à encoder, en gérant les différents formats possibles
+          if (entry.gratitude) {
+            if (Array.isArray(entry.gratitude)) {
+              // Format ancien (tableau de chaînes)
+              textToEmbed += ' ' + entry.gratitude.join(' ');
+            } else if (typeof entry.gratitude === 'object') {
+              // Format nouveau (jsonb)
+              try {
+                const gratitudeValues = Object.values(entry.gratitude);
+                textToEmbed += ' ' + gratitudeValues.join(' ');
+              } catch (e) {
+                console.warn(`Erreur lors du traitement de gratitude pour l'entrée ${entry.id}:`, e);
+              }
+            } else if (typeof entry.gratitude === 'string') {
+              // Cas où c'est une chaîne simple
+              textToEmbed += ' ' + entry.gratitude;
+            }
+          }
           
           if (!textToEmbed.trim()) {
             console.warn(`Entry ${entry.id} (${entry.date}) has no content to embed`);
