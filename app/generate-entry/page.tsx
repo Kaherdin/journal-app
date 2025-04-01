@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navigation } from '@/components/navigation';
 import { Button } from '@/components/ui/button';
@@ -8,103 +8,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { JournalEntry } from '@/app/types';
+import { TextWithAudio } from '@/components/TextWithAudio';
 
 export default function GenerateEntry() {
   const router = useRouter();
   const [prompt, setPrompt] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [generatedEntry, setGeneratedEntry] = useState<JournalEntry | null>(null);
   const [editedEntry, setEditedEntry] = useState<JournalEntry | null>(null);
-  
-  // Référence pour le recorder
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  
-  // État pour la prise en charge de l'enregistrement audio
-  const [isAudioSupported, setIsAudioSupported] = useState(true);
-  
-  // Vérifier si l'enregistrement audio est supporté
-  useEffect(() => {
-    if (typeof navigator !== 'undefined' && !navigator.mediaDevices?.getUserMedia) {
-      setIsAudioSupported(false);
-    }
-  }, []);
-  
-  // Fonction pour démarrer l'enregistrement
-  const startRecording = async () => {
-    try {
-      chunksRef.current = [];
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          chunksRef.current.push(e.data);
-        }
-      };
-      
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        processAudioToText(audioBlob);
-      };
-      
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (err) {
-      console.error('Erreur lors du démarrage de l\'enregistrement:', err);
-      setError('Impossible d\'accéder au microphone. Veuillez vérifier les permissions.');
-      setIsAudioSupported(false);
-    }
-  };
-  
-  // Fonction pour arrêter l'enregistrement
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-      
-      // Arrêter tous les tracks pour libérer le microphone
-      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-    }
-  };
-  
-  // Fonction pour convertir l'audio en texte
-  const processAudioToText = async (audioBlob: Blob) => {
-    try {
-      setIsTranscribing(true);
-      setError('');
-      
-      // Créer un FormData avec le blob audio
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.webm');
-      
-      // Envoyer à notre API de transcription
-      const response = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      // Afficher le texte transcrit sans générer automatiquement
-      setPrompt(data.text);
-      setIsTranscribing(false);
-    } catch (err) {
-      console.error('Erreur lors de la transcription:', err);
-      setError('Impossible de transcrire l\'audio. Veuillez saisir votre texte manuellement.');
-      setIsTranscribing(false);
-    }
-  };
   
   // Fonction pour générer l'entrée de journal
   const generateEntry = async (promptText: string) => {
@@ -238,32 +151,20 @@ export default function GenerateEntry() {
                       <li>Avez-vous fait du sport ou pratiqué un art?</li>
                     </ul>
                   </div>
-                  <Textarea
+                  <TextWithAudio
                     id="prompt"
                     value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
+                    onChange={setPrompt}
                     placeholder="Aujourd'hui j'ai..."
                     rows={8}
-                    className="resize-none"
+                    isTextarea={true}
                   />
                 </div>
                 
-                <div className="flex flex-col md:flex-row gap-3">
-                  {isAudioSupported && (
-                    <Button
-                      type="button"
-                      variant={isRecording ? "destructive" : "secondary"}
-                      className="flex-1"
-                      onClick={isRecording ? stopRecording : startRecording}
-                      disabled={isTranscribing}
-                    >
-                      {isRecording ? 'Arrêter l\'enregistrement' : isTranscribing ? 'Transcription...' : 'Enregistrer votre voix'}
-                    </Button>
-                  )}
-                  
+                <div className="flex justify-end">
                   <Button 
                     type="button" 
-                    className="flex-1"
+                    className="w-full md:w-auto"
                     disabled={!prompt || isGenerating}
                     onClick={() => generateEntry(prompt)}
                   >
@@ -307,12 +208,12 @@ export default function GenerateEntry() {
                     <label htmlFor="mit" className="text-sm font-medium">
                       Tâche la plus importante (MIT)
                     </label>
-                    <Input
+                    <TextWithAudio
                       id="mit"
                       value={editedEntry?.mit || ''}
-                      onChange={(e) => handleFieldChange('mit', e.target.value)}
+                      onChange={(value) => handleFieldChange('mit', value)}
                       placeholder="Tâche la plus importante"
-                      required
+                      isTextarea={false}
                     />
                   </div>
                 </div>
@@ -321,12 +222,11 @@ export default function GenerateEntry() {
                   <label htmlFor="content" className="text-sm font-medium">
                     Contenu
                   </label>
-                  <Textarea
+                  <TextWithAudio
                     id="content"
                     value={editedEntry?.content || ''}
-                    onChange={(e) => handleFieldChange('content', e.target.value)}
+                    onChange={(value) => handleFieldChange('content', value)}
                     rows={6}
-                    required
                   />
                 </div>
                 
@@ -336,11 +236,12 @@ export default function GenerateEntry() {
                   </label>
                   <div className="space-y-2">
                     {editedEntry?.gratitude?.map((item, index) => (
-                      <Input
+                      <TextWithAudio
                         key={index}
                         value={item}
-                        onChange={(e) => handleFieldChange(`gratitude.${index}`, e.target.value)}
+                        onChange={(value) => handleFieldChange(`gratitude.${index}`, value)}
                         placeholder={`Gratitude ${index + 1}`}
+                        isTextarea={false}
                       />
                     ))}
                   </div>
