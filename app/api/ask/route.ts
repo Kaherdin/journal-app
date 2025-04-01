@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import supabase from '@/app/lib/supabase';
 import { createEmbedding, generateCompletion } from '@/app/lib/openai';
-import { AskQuestion } from '@/app/types';
+import { AskQuestion, JournalEntry } from '@/app/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Fonction utilitaire pour traiter les entrées et générer une réponse
-async function processEntriesAndGenerateResponse(question: string, entries: any[], yearFilter: string | null) {
+async function processEntriesAndGenerateResponse(question: string, entries: JournalEntry[], yearFilter: string | null) {
   try {
     // Compter les entrées par année pour le contexte
     const entriesByYear: Record<string, number> = {};
@@ -169,7 +169,7 @@ async function processEntriesAndGenerateResponse(question: string, entries: any[
     }
     
     // Préparer le contexte pour OpenAI avec le sous-ensemble limité
-    const contextEntries = entriesToUse.map((entry: any) => {
+    const contextEntries = entriesToUse.map((entry: JournalEntry) => {
       const formattedDate = new Date(entry.date).toLocaleDateString('fr-FR', {
         year: 'numeric',
         month: 'long',

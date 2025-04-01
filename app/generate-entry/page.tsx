@@ -140,20 +140,20 @@ export default function GenerateEntry() {
   const handleFieldChange = (field: string, value: any) => {
     if (!editedEntry) return;
     
-    setEditedEntry(prev => {
+    setEditedEntry((prev: JournalEntry | null) => {
       if (!prev) return prev;
       
       if (field === 'mit' || field === 'content' || field === 'date') {
-        return { ...prev, [field]: value };
+        return { ...prev, [field]: value } as JournalEntry;
       } else if (field.startsWith('notes.')) {
         const noteField = field.split('.')[1];
         return {
           ...prev,
           notes: {
-            ...prev.notes,
+            ...(prev.notes || {}),
             [noteField]: parseInt(value)
           }
-        };
+        } as JournalEntry;
       } else if (field.startsWith('gratitude.')) {
         const index = parseInt(field.split('.')[1]);
         const newGratitude = [...prev.gratitude];

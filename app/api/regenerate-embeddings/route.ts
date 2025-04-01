@@ -23,7 +23,13 @@ export async function GET() {
     
     // Process entries in batches to avoid rate limiting
     const batchSize = 5;
-    const results = [];
+    const results: Array<{
+      id: string | undefined;
+      success: boolean;
+      error?: string;
+      date: string;
+      mit?: string;
+    }> = [];
     let successCount = 0;
     let errorCount = 0;
     
@@ -34,7 +40,7 @@ export async function GET() {
       const batchResults = await Promise.all(batch.map(async (entry: JournalEntry) => {
         try {
           // Create text to embed
-          const textToEmbed = `${entry.mit || ''} ${entry.content || ''} ${entry.prompt || ''}`;
+          let textToEmbed = `${entry.mit || ''} ${entry.content || ''} ${entry.prompt || ''}`;
 
           // Ajouter la gratitude au texte à encoder, en gérant les différents formats possibles
           if (entry.gratitude) {

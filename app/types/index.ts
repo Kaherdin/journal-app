@@ -6,14 +6,15 @@ export interface JournalEntry {
   prompt?: string;
   gratitude?: any; // Changé de string[] à any pour supporter le format jsonb
   notes?: {
-    productivite: number;
-    sport: number;
-    energie: number;
-    proprete: number;
-    art: number;
+    productivite?: number;
+    sport?: number;
+    energie?: number;
+    proprete?: number;
+    art?: number;
   };
   embedding?: number[];
   created_at?: string;
+  similarity?: number; // Ajouté pour le support des résultats de recherche vectorielle
 }
 
 export interface AskQuestion {
