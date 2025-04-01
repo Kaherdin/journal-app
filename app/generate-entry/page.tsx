@@ -1,17 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Navigation } from '@/components/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { JournalEntry } from '@/app/types';
 import { TextWithAudio } from '@/components/TextWithAudio';
 
 export default function GenerateEntry() {
-  const router = useRouter();
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,7 +33,7 @@ export default function GenerateEntry() {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Erreur lors de la génération de l\'entrée');
+        throw new Error(data.error || 'Erreur lors de la génération de l&apos;entrée');
       }
       
       setGeneratedEntry(data);
@@ -97,7 +94,7 @@ export default function GenerateEntry() {
       const data = await response.json();
       
       if (!response.ok) {
-        throw new Error(data.error || 'Erreur lors de l\'enregistrement de l\'entrée');
+        throw new Error(data.error || 'Erreur lors de l&apos;enregistrement de l&apos;entrée');
       }
       
       // Afficher un message de succès mais ne pas rediriger automatiquement
@@ -109,7 +106,7 @@ export default function GenerateEntry() {
       setGeneratedEntry(null);
       setEditedEntry(null);
     } catch (err) {
-      console.error('Erreur lors de l\'enregistrement:', err);
+      console.error('Erreur lors de l&apos;enregistrement:', err);
       setError(err instanceof Error ? err.message : 'Une erreur est survenue');
     } finally {
       setIsSubmitting(false);
@@ -145,7 +142,7 @@ export default function GenerateEntry() {
                   </label>
                   <div className="text-sm text-gray-500 mb-2">
                     <ul className="list-disc pl-5 space-y-1">
-                      <li>Qu'avez-vous accompli aujourd'hui?</li>
+                      <li>Qu&apos;avez-vous accompli aujourd&apos;hui?</li>
                       <li>Pour quoi êtes-vous reconnaissant(e)?</li>
                       <li>Comment évalueriez-vous votre énergie et productivité?</li>
                       <li>Avez-vous fait du sport ou pratiqué un art?</li>
@@ -155,7 +152,7 @@ export default function GenerateEntry() {
                     id="prompt"
                     value={prompt}
                     onChange={setPrompt}
-                    placeholder="Aujourd'hui j'ai..."
+                    placeholder="Aujourd&apos;hui j&apos;ai..."
                     rows={8}
                     isTextarea={true}
                   />
@@ -168,7 +165,7 @@ export default function GenerateEntry() {
                     disabled={!prompt || isGenerating}
                     onClick={() => generateEntry(prompt)}
                   >
-                    {isGenerating ? 'Génération en cours...' : 'Générer l\'entrée'}
+                    {isGenerating ? 'Génération en cours...' : 'Générer l&apos;entrée'}
                   </Button>
                 </div>
               </div>
@@ -179,7 +176,7 @@ export default function GenerateEntry() {
             <CardHeader>
               <CardTitle>Entrée générée</CardTitle>
               <CardDescription>
-                Vérifiez et modifiez l'entrée avant de la sauvegarder
+                Vérifiez et modifiez l&apos;entrée avant de la sauvegarder
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -290,7 +287,7 @@ export default function GenerateEntry() {
                     disabled={isSubmitting}
                     onClick={submitEntry}
                   >
-                    {isSubmitting ? 'Enregistrement...' : 'Sauvegarder l\'entrée'}
+                    {isSubmitting ? 'Enregistrement...' : 'Sauvegarder l&apos;entrée'}
                   </Button>
                 </div>
               </form>

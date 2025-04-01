@@ -136,7 +136,7 @@ export async function POST() {
         const embedding = await createEmbedding(textToEmbed);
         
         // Insérer l'entrée dans Supabase
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('journal_entries')
           .insert({
             ...journalEntry,

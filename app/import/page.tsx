@@ -116,7 +116,7 @@ export default function Import() {
             <CardContent>
               <p className="text-sm text-gray-500 mb-4">
                 Cette fonction créera des embeddings vectoriels pour toutes vos entrées,
-                permettant ainsi la recherche sémantique et l'analyse IA.
+                permettant ainsi la recherche sémantique et l&apos;analyse IA.
               </p>
             </CardContent>
             <CardFooter>

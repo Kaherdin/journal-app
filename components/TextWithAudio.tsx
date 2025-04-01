@@ -61,7 +61,7 @@ export const TextWithAudio = ({
           .catch(() => {
             setIsAudioSupported(false);
           });
-      } catch (err) {
+      } catch  {
         setIsAudioSupported(false);
       }
     };
@@ -189,7 +189,7 @@ export const TextWithAudio = ({
       let mediaRecorder;
       try {
         mediaRecorder = new MediaRecorder(stream, options);
-      } catch (e) {
+      } catch  {
         console.warn('Preferred mime type not supported, using browser default');
         mediaRecorder = new MediaRecorder(stream);
       }

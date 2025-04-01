@@ -195,7 +195,7 @@ export default function Entries() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Êtes-vous sûr de vouloir supprimer cette entrée ?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Cette action est irréversible. L'entrée du {new Date(entry.date).toLocaleDateString('fr-FR')} sera définitivement supprimée.
+                            Cette action est irréversible. L&apos;entrée du {new Date(entry.date).toLocaleDateString('fr-FR')} sera définitivement supprimée.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>

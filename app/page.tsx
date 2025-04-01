@@ -44,7 +44,7 @@ export default function Home() {
               <CardDescription>Interrogez votre journal</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="mb-4 text-sm">Utilisez l'IA pour analyser vos entrées et obtenir des insights.</p>
+              <p className="mb-4 text-sm">Utilisez l&apos;IA pour analyser vos entrées et obtenir des insights.</p>
               <Button asChild variant="outline" className="w-full">
                 <Link href="/ask">Demander</Link>
               </Button>

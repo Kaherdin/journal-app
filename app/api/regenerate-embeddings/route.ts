@@ -70,7 +70,7 @@ export async function GET() {
           const embedding = await createEmbedding(textToEmbed);
           
           // Update entry with embedding
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from('journal_entries')
             .update({ embedding })
             .eq('id', entry.id)
