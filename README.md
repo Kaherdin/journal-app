@@ -124,11 +124,52 @@ Pour obtenir une meilleure qualité de transcription:
 
 1. **Utilisez un microphone de qualité** si possible
 2. **Parlez clairement et à un rythme modéré**
-3. **Évitez les environnements bruyants**
-4. **Alternatives techniques possibles**:
-   - Utiliser le modèle `whisper-large-v3` pour une meilleure précision (nécessite une modification de l'API)
+3. **Attendez la fin du compte à rebours** avant de commencer à parler
+4. **Évitez les environnements bruyants**
+5. **Alternatives techniques possibles**:
+   - Utiliser le modèle `gpt-4o-mini-transcribe` ou `gpt-4o-transcribe` pour une meilleure précision (nécessite une mise à jour de la clé API)
    - Implémenter une solution locale comme Mozilla DeepSpeech pour plus de confidentialité
    - Utiliser un service spécialisé comme Google Speech-to-Text ou Azure Speech Services
+
+### Fonctionnalités de l'enregistrement audio
+
+Le composant `TextWithAudio` inclut les fonctionnalités suivantes:
+
+- **Compte à rebours** - Délai de 3 secondes avant le début de l'enregistrement
+- **Visualisation du volume** - Indicateur visuel qui change selon le volume de votre voix
+- **Compteur de temps** - Affiche la durée de l'enregistrement en secondes
+- **Optimisations audio** - Suppression de bruit, annulation d'écho et contrôle automatique du gain
+- **Indicateurs visuels** - Bordure colorée, icône animée et retour visuel durant l'enregistrement
+
+## Configuration du développement
+
+### ESLint
+
+Le projet utilise ESLint pour le linting du code. Si vous rencontrez des erreurs de linting que vous souhaitez désactiver, vous pouvez les configurer dans le fichier `.eslintrc.json` à la racine du projet:
+
+```json
+{
+  "extends": [
+    "next/core-web-vitals"
+  ],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": "off"
+    // Ajoutez ici d'autres règles à désactiver si nécessaire
+  }
+}
+```
+
+### TypeScript
+
+Pour éviter les erreurs courantes de type comme les tableaux vides, assurez-vous de toujours typer explicitement vos variables, par exemple:
+
+```typescript
+// À éviter
+const items = [];
+
+// Préférer
+const items: SomeType[] = [];
+```
 
 ## Démarrage
 
