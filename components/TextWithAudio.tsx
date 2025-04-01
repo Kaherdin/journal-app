@@ -33,12 +33,14 @@ export const TextWithAudio = ({
   const [error, setError] = useState('');
   const [recordingTime, setRecordingTime] = useState(0);
   const [recordingVolume, setRecordingVolume] = useState(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recorderTimerRef = useRef<NodeJS.Timeout | null>(null);
   const audioAnalyserRef = useRef<AnalyserNode | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const countdownRef = useRef<NodeJS.Timeout | null>(null);
   
   // Check if audio recording is supported
   useEffect(() => {
@@ -102,11 +104,14 @@ export const TextWithAudio = ({
   const startRecording = async () => {
     try {
       setError('');
-      chunksRef.current = [];
+      
+      // Démarrer un compte à rebours de 3 secondes avant de commencer l'enregistrement
+      setCountdown(3);
       
       // Nettoyer tout enregistrement précédent
       cleanupRecording();
       
+      // Préparer le flux audio en avance
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { 
           echoCancellation: true,
@@ -114,6 +119,43 @@ export const TextWithAudio = ({
           autoGainControl: true,
         } 
       });
+      
+      // Démarrer le compte à rebours
+      let count = 3;
+      countdownRef.current = setInterval(() => {
+        count -= 1;
+        setCountdown(count);
+        
+        // Quand le compte à rebours atteint 0, démarrer l'enregistrement
+        if (count <= 0) {
+          if (countdownRef.current) {
+            clearInterval(countdownRef.current);
+            countdownRef.current = null;
+          }
+          setCountdown(null);
+          
+          // Maintenant démarrer l'enregistrement avec le flux pré-acquis
+          startRecordingWithStream(stream);
+        }
+      }, 1000);
+      
+    } catch (err) {
+      console.error('Error starting recording:', err);
+      setError('Unable to access microphone. Please check permissions.');
+      setIsAudioSupported(false);
+      cleanupRecording();
+      setCountdown(null);
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+    }
+  };
+  
+  // Fonction pour démarrer l'enregistrement avec un flux audio déjà acquis
+  const startRecordingWithStream = (stream: MediaStream) => {
+    try {
+      chunksRef.current = [];
       
       // Configurer l'analyseur audio pour les niveaux de volume
       const audioContext = new AudioContext();
@@ -174,14 +216,20 @@ export const TextWithAudio = ({
       mediaRecorder.start(200);
       setIsRecording(true);
     } catch (err) {
-      console.error('Error starting recording:', err);
-      setError('Unable to access microphone. Please check permissions.');
-      setIsAudioSupported(false);
+      console.error('Error during recording setup:', err);
+      setError('Error setting up recording. Please try again.');
       cleanupRecording();
     }
   };
   
   const stopRecording = () => {
+    // Arrêter le compte à rebours si actif
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+      countdownRef.current = null;
+      setCountdown(null);
+    }
+    
     if (mediaRecorderRef.current && isRecording) {
       // Mark as not recording immediately to update UI
       setIsRecording(false);
@@ -199,7 +247,7 @@ export const TextWithAudio = ({
           // Clean up recording resources
           cleanupRecording();
         }
-      }, 800); // Increased delay for better capture
+      }, 1000); // Increased delay for better capture of the end of phrases
     }
   };
   
@@ -266,11 +314,16 @@ export const TextWithAudio = ({
           placeholder={placeholder}
           rows={isTextarea ? rows : undefined}
           className={`${className} ${isTextarea ? 'resize-none' : ''} pr-12`}
-          disabled={isTranscribing}
+          disabled={isTranscribing || countdown !== null}
         />
         
         {isAudioSupported && (
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+            {countdown !== null && (
+              <div className="mr-2 text-sm font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                {countdown}
+              </div>
+            )}
             {isRecording && (
               <div 
                 className="mr-2 h-2 w-2 rounded-full bg-red-500 animate-pulse"
@@ -289,10 +342,17 @@ export const TextWithAudio = ({
               type="button"
               variant="ghost"
               size="icon"
-              className={`h-8 w-8 rounded-full ${isRecording ? 'bg-red-100 text-red-500 hover:bg-red-200 hover:text-red-600' : ''}`}
-              onClick={isRecording ? stopRecording : startRecording}
+              className={`h-8 w-8 rounded-full ${
+                isRecording ? 'bg-red-100 text-red-500 hover:bg-red-200 hover:text-red-600' : 
+                countdown !== null ? 'bg-blue-100 text-blue-500' : ''
+              }`}
+              onClick={isRecording || countdown !== null ? stopRecording : startRecording}
               disabled={isTranscribing}
-              title={isRecording ? 'Stop recording' : 'Start recording'}
+              title={
+                isRecording ? 'Stop recording' : 
+                countdown !== null ? 'Cancel countdown' : 
+                'Start recording'
+              }
             >
               {isRecording ? (
                 <MicOff className="h-4 w-4" />
@@ -310,8 +370,10 @@ export const TextWithAudio = ({
         <p className="text-sm text-red-500 mt-1">{error}</p>
       )}
       
-      {isRecording && (
-        <div className="absolute top-0 left-0 w-full h-full border-2 border-red-500 rounded-md pointer-events-none" />
+      {(isRecording || countdown !== null) && (
+        <div className={`absolute top-0 left-0 w-full h-full border-2 pointer-events-none rounded-md ${
+          isRecording ? 'border-red-500' : 'border-blue-500'
+        }`} />
       )}
     </div>
   );

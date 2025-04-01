@@ -30,16 +30,33 @@ export async function POST(request: NextRequest) {
     // Log pour le débogage
     console.log(`Fichier préparé pour transcription: ${fileName}, type: ${fileObject.type}, taille: ${fileObject.size} bytes`);
     
-    // Transcription via Whisper API
-    const transcription = await openai.audio.transcriptions.create({
-      file: fileObject,
-      model: 'whisper-1',
-      response_format: 'json',
-    });
-    
-    return NextResponse.json({
-      text: transcription.text
-    }, { status: 200 });
+    // Tester d'abord avec le nouveau modèle GPT-4o-mini-transcribe
+    try {
+      const transcription = await openai.audio.transcriptions.create({
+        file: fileObject,
+        model: 'gpt-4o-mini-transcribe',
+        response_format: 'text',
+      });
+      
+      return NextResponse.json({
+        text: transcription,
+        model: 'gpt-4o-mini-transcribe'
+      }, { status: 200 });
+    } catch (newModelError) {
+      console.warn('Erreur avec le modèle gpt-4o-mini-transcribe, fallback sur whisper-1:', newModelError);
+      
+      // Fallback sur le modèle whisper-1 si le nouveau modèle n'est pas disponible
+      const transcription = await openai.audio.transcriptions.create({
+        file: fileObject,
+        model: 'whisper-1',
+        response_format: 'json',
+      });
+      
+      return NextResponse.json({
+        text: transcription.text,
+        model: 'whisper-1'
+      }, { status: 200 });
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Erreur lors de la transcription:', error);
