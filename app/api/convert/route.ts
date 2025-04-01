@@ -71,7 +71,7 @@ export async function GET(request: Request) {
         let tableMarkdown = `**Mes notes**:\n`;
 
         // Collect the data with names and values
-        const entries = [];
+        const entries: { name: string; rating: string }[] = [];
 
         for (const page of response.results) {
           // Type assertion for page.properties
