@@ -6,8 +6,8 @@ ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS embedding vector(1536);
 
 -- Créer un index pour accélérer les recherches
 CREATE INDEX IF NOT EXISTS journal_entries_embedding_idx 
-ON journal_entries 
-USING ivfflat (embedding vector_l2_ops) 
+ON journal_entries
+USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 1000);
 
 -- Supprimer la fonction existante avant de la recréer
@@ -44,6 +44,7 @@ BEGIN
     1 - (journal_entries.embedding <=> query_embedding) AS similarity
   FROM journal_entries
   WHERE journal_entries.embedding IS NOT NULL
+    AND 1 - (journal_entries.embedding <=> query_embedding) > match_threshold
   ORDER BY journal_entries.embedding <=> query_embedding
   LIMIT match_count;
 END;
